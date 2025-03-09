@@ -14,9 +14,10 @@ author "Rod Webster";
 
 param mode = 1;         "cv2 mode";
 pin in  bit cv2_din     "cv2 digital input";
-pin out bit cv2_dout    "cv2 digital output";
+pin in  bit cv2_dout    "cv2 digital output";
 pin in  bit z_homed     "connect to Z axis joint.N.homed";
 pin in  bit cv2_analog  "analog output
+pin out bit cv2_probe   "true if a collision";
 
 function _;
 license "GPL";
@@ -24,14 +25,15 @@ license "GPL";
 #define FASTCAL_PULSE 400     //  millisecond pulse
 typedef enum {
   NOT_HOMED,
-  HOMED;
+  HOMED,
+  RUNNING;
 } State;
 
 FUNCTION(_) {
   State current_state = NOT_HOMED; // Initial state
   static int last_homed;
-  static unsigned home_t;
-  static unsigned this_t;
+  static unsigned home_t = 0;
+  static unsigned this_t = 0;
 
   switch(current_state){
     case NOT_HOMED:
@@ -44,9 +46,15 @@ FUNCTION(_) {
       break;
     case HOMED:
       this_t += period;
-      if (home_t > FASTCAL_PULSE * 1000000){ //pulse as naonoseconds
+      if (this_t > FASTCAL_PULSE * 1000000){ //pulse as naonoseconds
         cv2_dout = 0;
       }
+      break;
+    case RUNNING:
+      if (mode == 5)
+        cv2_probe  = cv2_analog < 11000 ? 1:0;
+      else
+        cv2_probe = cv2_dout ? 1:0;
       break;
     default:
       break;
