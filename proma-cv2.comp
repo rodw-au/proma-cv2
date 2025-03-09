@@ -5,24 +5,30 @@ description
 Proma CV2 capacitance to voltage laser height control
 Pin 1 - Digital Input
 Pin 2 - Analog Output
-Pin 3 - Digital Input
+Pin 3 - Digital Output
 Pin 4 - +24V DC
 Pin 5 - GND
 
 """;
 author "Rod Webster";
 
-param mode = 1;         "cv2 mode";
-pin in  bit cv2_din     "cv2 digital input";
+param r mode = 1        "cv2 mode";
+pin out bit cv2_din     "cv2 digital input";
 pin in  bit cv2_dout    "cv2 digital output";
-pin in  bit z_homed     "connect to Z axis joint.N.homed";
 pin in  bit cv2_analog  "analog output
 pin out bit cv2_probe   "true if a collision";
+pin in  bit z_homed     "connect to Z axis joint.N.homed";
+pin in  float mm_units  "connect to halui.machine.units-per-mm";
+pin out float height    "height in device units";
 
 function _;
 license "GPL";
 ;;
-#define FASTCAL_PULSE 400     //  millisecond pulse
+#define FASTCAL_PULSE 250     // pulse length in milliseconds
+#define FREQ_OFFSET   200000  // frequency 0.0mm offset
+#define FREQ_STEP     5       // frequency per 0.01v step
+#define FREQ_COLL     11000   // collision value + safety offset
+
 typedef enum {
   NOT_HOMED,
   HOMED,
@@ -33,28 +39,45 @@ FUNCTION(_) {
   State current_state = NOT_HOMED; // Initial state
   static int last_homed;
   static unsigned home_t = 0;
-  static unsigned this_t = 0;
 
   switch(current_state){
     case NOT_HOMED:
-      if(z_homed && !last_homed){
-        home_t = 0;
-        cv2_dout = 1;
-        last_homed = z_homed;
-        current_state = HOMED;
+      if(z_homed && !last_homed){ // Z axis has homed this cycle
+        home_t  = 0;  // zero the home timer
+        cv2_din = 1;  // set the cv2 input pin
+        current_state = HOMED;  // Next state
       }
+      last_homed = z_homed; // save this state
       break;
     case HOMED:
-      this_t += period;
-      if (this_t > FASTCAL_PULSE * 1000000){ //pulse as naonoseconds
-        cv2_dout = 0;
+      home_t += period;
+      if (home_t > FASTCAL_PULSE * 1000000){ // has pulse in naonoseconds expired
+        cv2_dout = 0; // turn off cv2 input pulse
+        current_state = RUNNING;  // Next state
       }
       break;
     case RUNNING:
-      if (mode == 5)
-        cv2_probe  = cv2_analog < 11000 ? 1:0;
-      else
-        cv2_probe = cv2_dout ? 1:0;
+        cv2_probe = cv2_dout ? 1:0; // set the collision probe
+        switch(mode){
+          case 1: // 0 - 10mm : 0 - 10V
+            height = cv2_analog * mm_units;
+            break;
+          case 2: // 0 - 10mm : 10 - 0V
+            height = (10.0 - cv2_analog) * mm_units;
+            break;
+          case 3: // 0 - 5mm  : 0 - 10V
+            height = (cv2_analog *2) * mm_units;
+            break;
+          case 4: // 0 - 5mm : 10 - 0V
+            height = ((10.0 - cv2_analog) *2) * mm_units;
+            break;
+          case 5: // frequency
+            cv2_probe  = cv2_analog < FREQ_COLL ? 1:0;
+            height = ((cv2_analog - FREQ_OFFSET)/ FREQ_STEP) * mm_units;
+            break;
+          default:
+            break;
+      }
       break;
     default:
       break;
