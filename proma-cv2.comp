@@ -1,0 +1,54 @@
+component proma-cv2 "LinuxCNC HAL component to use Proma CV2 capacitance to voltage laser height control";
+
+description
+"""
+Proma CV2 capacitance to voltage laser height control
+Pin 1 - Digital Input
+Pin 2 - Analog Output
+Pin 3 - Digital Input
+Pin 4 - +24V DC
+Pin 5 - GND
+
+""";
+author "Rod Webster";
+
+param mode = 1;         "cv2 mode";
+pin in  bit cv2_din     "cv2 digital input";
+pin out bit cv2_dout    "cv2 digital output";
+pin in  bit z_homed     "connect to Z axis joint.N.homed";
+pin in  bit cv2_analog  "analog output
+
+function _;
+license "GPL";
+;;
+#define FASTCAL_PULSE 400     //  millisecond pulse
+typedef enum {
+  NOT_HOMED,
+  HOMED;
+} State;
+
+FUNCTION(_) {
+  State current_state = NOT_HOMED; // Initial state
+  static int last_homed;
+  static unsigned home_t;
+  static unsigned this_t;
+
+  switch(current_state){
+    case NOT_HOMED:
+      if(z_homed && !last_homed){
+        home_t = 0;
+        cv2_dout = 1;
+        last_homed = z_homed;
+        current_state = HOMED;
+      }
+      break;
+    case HOMED:
+      this_t += period;
+      if (home_t > FASTCAL_PULSE * 1000000){ //pulse as naonoseconds
+        cv2_dout = 0;
+      }
+      break;
+    default:
+      break;
+  }
+}
