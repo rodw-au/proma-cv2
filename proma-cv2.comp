@@ -13,6 +13,7 @@ Pin 5 - GND
 author "Rod Webster";
 
 param r mode = 1        "cv2 mode";
+param r probe_height = 0.5 "probe height";
 pin out bit cv2_din     "cv2 digital input";
 pin in  bit cv2_dout    "cv2 digital output";
 pin in  bit cv2_analog  "analog output
@@ -20,6 +21,8 @@ pin out bit cv2_probe   "true if a collision";
 pin in  bit z_homed     "connect to Z axis joint.N.homed";
 pin in  float mm_units  "connect to halui.machine.units-per-mm";
 pin out float height    "height in device units";
+pin in  bit ohmic_enable "true if probing for material. Connect to plasmac.ohmic-enable"
+pin in  ohmic_sense_out "true if material reached";
 
 function _;
 license "GPL";
@@ -81,8 +84,13 @@ FUNCTION(_) {
             break;
           default:
             break;
-      }
-      break;
+        }
+        if(ohmic_enable){  // Probing for surface
+            ohmic_sense_out = height < probe_height ? 1:0;  // turn probe on before surface touched.
+            if(cv2_probe)  // Has there been a collision?
+              ohmic_sense_out = 1;  // Yes, treat as ohmic contact
+        }
+        break;
     default:
       break;
   }
