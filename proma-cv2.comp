@@ -12,7 +12,8 @@ Pin 5 - GND
 """;
 author "Rod Webster";
 
-param r mode = 1        "cv2 mode";
+param r mode = 1        "1-5 = cv2 mode, 6 = BCL-AMP
+";
 param r probe_height = 0.5 "probe height";
 pin out bit cv2_din     "cv2 digital input";
 pin in  bit cv2_dout    "cv2 digital output";
@@ -22,7 +23,9 @@ pin in  bit z_homed     "connect to Z axis joint.N.homed";
 pin in  float mm_units  "connect to halui.machine.units-per-mm";
 pin out float height    "height in device units";
 pin in  bit ohmic_enable "true if probing for material. Connect to plasmac.ohmic-enable"
-pin in  ohmic_sense_out "true if material reached";
+pin out bit ohmic_sense_out "true if material reached";
+pin in  bit spindle_on      " Connect to spindle.0.on";
+pon out bit fake_arc_ok "will turn true if spindle (laser is turned on";
 
 function _;
 license "GPL";
@@ -82,6 +85,9 @@ FUNCTION(_) {
             cv2_probe  = cv2_analog < FREQ_COLL ? 1:0;
             height = ((cv2_analog - FREQ_OFFSET)/ FREQ_STEP) * mm_units;
             break;
+          case 6: // BCL-AMP mode
+            //ToDo
+            break;
           default:
             break;
         }
@@ -90,6 +96,8 @@ FUNCTION(_) {
             if(cv2_probe)  // Has there been a collision?
               ohmic_sense_out = 1;  // Yes, treat as ohmic contact
         }
+      
+        fake_arc_ok = spindle_on ? 1:0; // turn on arcOK if spindle is on
         break;
     default:
       break;
