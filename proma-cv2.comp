@@ -57,6 +57,10 @@ FUNCTION(_) {
       }
       break;
     case RUNNING:
+        if(!z_homed){
+          current_state = NOT_HOMED;
+          break;
+        }
         cv2_probe = cv2_dout ? 1:0; // set the collision probe
         switch(mode){
           case 1: // 0 - 10mm : 0 - 10V
